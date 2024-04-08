@@ -1,0 +1,4 @@
+service_name: "banner"
+storage_path: "empty"
+http_server:
+  address: "localhost:8090"
