@@ -13,7 +13,7 @@ type Config struct {
 }
 
 type HTTPServer struct {
-	Address string `yaml:"address" env-required:"true"`
+	Port string `yaml:"port" env-required:"true"`
 }
 
 func New(filePath string) (*Config, error) {

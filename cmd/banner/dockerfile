@@ -1,7 +1,7 @@
 FROM base
 
-RUN go build -o main ./cmd/banner
-
 EXPOSE 8090
+
+RUN go build -o main ./cmd/banner
 
 CMD ["./main"]

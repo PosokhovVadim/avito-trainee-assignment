@@ -2,6 +2,7 @@ package main
 
 import (
 	"avito/config"
+	"avito/internal/app"
 	"avito/pkg/logger"
 	"fmt"
 )
@@ -21,11 +22,8 @@ func run() error {
 
 	log.Info("Logger setup successfully")
 
-	//todo: app init banner service
-	//todo: to app: 1) init logger 2) init db 3) init http server
-
-	//todo: run http server
-
+	app := app.NewBannerApp(log, cfg.HTTPServer.Port, cfg.StoragePath)
+	app.Run()
 	return nil
 }
 
