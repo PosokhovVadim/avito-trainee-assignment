@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  dependencies:
+    build: .
+    image: base 
+  banner: 
+    container_name: banner
+    build: 
+      context: ./cmd/banner/
+      dockerfile: dockerfile
+    volumes:
+      - ./logs:/app/logs
+    ports:
+      - 8090:8090
+    depends_on:
+      - dependencies
