@@ -1,4 +1,4 @@
 service_name: "banner"
-storage_path: "empty"
+storage_path: "postgres://postgres:postgres@postgres/banner_db?sslmode=disable"
 http_server:
   port: ":8090"

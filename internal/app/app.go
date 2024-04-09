@@ -4,6 +4,7 @@ import (
 	"avito/internal/controllers"
 	"avito/internal/routes"
 	"avito/internal/service"
+	"avito/internal/storage/postgresql"
 	"avito/pkg/logger"
 
 	"log/slog"
@@ -18,11 +19,15 @@ type App struct {
 }
 
 func NewBannerApp(log *slog.Logger, address string, storagePath string) *App {
-	_ = storagePath
+	storage, err := postgresql.NewStorage(storagePath)
+	if err != nil {
+		log.Error("failed to init storage", err)
+	}
+	log.Info("Storage setup successfully by path ", slog.String("path", storagePath))
 
 	r := ginSetup()
-	bannerService := service.NewBannerService(log)
 
+	bannerService := service.NewBannerService(log, storage)
 	bannerCtrl := controllers.NewBannerController(bannerService)
 
 	routes.SetupBannerRoutes(r, bannerCtrl)

@@ -17,7 +17,7 @@ func NewBannerController(banner Banner) *BannerController {
 }
 
 func (b *BannerController) EmptyFunc() gin.HandlerFunc {
-	
+
 	return gin.HandlerFunc(func(c *gin.Context) {
 		b.banner.EmptyFunc()
 		c.JSON(200, gin.H{
