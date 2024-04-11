@@ -23,7 +23,12 @@ func run() error {
 	log.Info("Logger setup successfully")
 
 	app := app.NewBannerApp(log, cfg.HTTPServer.Port, cfg.StoragePath)
-	app.Run()
+	err = app.Run()
+	if err != nil {
+		log.Error("server error:", logger.Err(err))
+		return err
+	}
+
 	return nil
 }
 

@@ -3,7 +3,6 @@ package postgresql
 import (
 	"fmt"
 
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -12,11 +11,12 @@ type Postgres struct {
 }
 
 func NewStorage(storagePath string) (*Postgres, error) {
-	db, err := gorm.Open(postgres.Open(storagePath), &gorm.Config{})
-	if err != nil {
-		return nil, err
-	}
-	return &Postgres{db: db}, nil
+	// db, err := gorm.Open(postgres.Open(storagePath), &gorm.Config{})
+	// if err != nil {
+	// 	return nil, err
+	// }
+	return nil, nil
+	// return &Postgres{db: db}, nil
 }
 
 func (s *Postgres) Close() error {

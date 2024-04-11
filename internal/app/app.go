@@ -5,7 +5,6 @@ import (
 	"avito/internal/routes"
 	"avito/internal/service"
 	"avito/internal/storage/postgresql"
-	"avito/pkg/logger"
 
 	"log/slog"
 
@@ -60,7 +59,6 @@ func (a *App) Run() error {
 	a.log.Info("Starting http server:", slog.String("addr", a.address))
 	err := a.Gin.Run(a.address)
 	if err != nil {
-		a.log.Error("Cannot start server:", logger.Err(err))
 		return err
 	}
 	return nil

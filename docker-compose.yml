@@ -5,16 +5,14 @@ services:
     build: .
     image: base 
   db:
-    container_name: postgres
+    container_name: postgres_banner_db
     image: postgres:16.0
     restart: always
-    volumes:
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./db/data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: banner_db
     healthcheck:
       test: "pg_isready --username=postgres && psql --username=postgres --list"
@@ -22,7 +20,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+
   banner: 
+    container_name: avito_banner
     build: 
       context: ./cmd/banner/
       dockerfile: dockerfile
@@ -31,5 +31,7 @@ services:
     ports:
       - "8090:8090"
     depends_on:
-      - dependencies
-      - db 
+      db:
+        condition: service_healthy
+      dependencies:
+        condition: service_started
