@@ -12,5 +12,5 @@ func SetupBannerRoutes(r *gin.Engine, bannerCtrl *controllers.BannerController) 
 	// 	banner.GET("/", bannerCtrl.EmptyFunc())
 	// }
 	// _ = banner
-	r.GET("/banner", bannerCtrl.EmptyFunc())
+	r.GET("/user_banner", bannerCtrl.UserBanner)
 }

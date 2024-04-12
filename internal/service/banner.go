@@ -2,8 +2,10 @@ package service
 
 import (
 	"avito/internal/storage"
-	"fmt"
+	"avito/pkg/logger"
+	"encoding/json"
 	"log/slog"
+	"strconv"
 )
 
 type BannerService struct {
@@ -18,7 +20,42 @@ func NewBannerService(log *slog.Logger, storage storage.Storage) *BannerService 
 	}
 }
 
-func (b *BannerService) EmptyFunc() {
-	fmt.Println("I am(service) doing nothing too")
-	b.s.StorageEmptyFunc()
+func (b *BannerService) UserBanner(tagID string, featureID string, useLastRevision string) (interface{}, error) {
+	tagidNum, err := strconv.Atoi(tagID)
+	if err != nil {
+		b.log.Error("convert failed", slog.String("err", err.Error()))
+		return nil, err
+	}
+
+	featureidNum, err := strconv.Atoi(featureID)
+	if err != nil {
+		b.log.Error("convert failed", slog.String("err", err.Error()))
+		return nil, err
+	}
+
+	fl, err := strconv.ParseBool(useLastRevision)
+	if err != nil {
+		b.log.Error("convert failed", logger.Err(err))
+		return nil, err
+	}
+
+	var bytes []byte
+	if fl {
+		bytes, err = b.s.GetUserBannerLastRevision(int64(tagidNum), int64(featureidNum))
+	} else {
+		bytes, err = b.s.GetUserBanner(int64(tagidNum), int64(featureidNum))
+	}
+
+	if err != nil {
+		b.log.Error("select error", logger.Err(err))
+		return nil, err
+	}
+
+	var data interface{}
+	err = json.Unmarshal(bytes, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }

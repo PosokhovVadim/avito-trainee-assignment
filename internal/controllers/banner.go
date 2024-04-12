@@ -1,9 +1,13 @@
 package controllers
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
 
 type Banner interface {
-	EmptyFunc()
+	UserBanner(tagID string, featureID string, useLastRevision string) (interface{}, error)
 }
 
 type BannerController struct {
@@ -16,12 +20,41 @@ func NewBannerController(banner Banner) *BannerController {
 	}
 }
 
-func (b *BannerController) EmptyFunc() gin.HandlerFunc {
+func (b *BannerController) UserBanner(c *gin.Context) {
+	tagID := c.Query("tag_id")
+	featureID := c.Query("feature_id")
+	if tagID == "" || featureID == "" {
+		c.JSON(http.StatusBadRequest, nil)
+		return
+	}
 
-	return gin.HandlerFunc(func(c *gin.Context) {
-		b.banner.EmptyFunc()
-		c.JSON(200, gin.H{
-			"message": "Banner is doing nothing",
-		})
-	})
+	useLastRevision := c.DefaultQuery("use_last_revision", "false")
+
+	token := c.GetHeader("token")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, nil)
+	}
+
+	data, err := b.banner.UserBanner(tagID, featureID, useLastRevision)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, nil)
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+
+func (b *BannerController) GetBanner(c *gin.Context) {
+	//
+}
+
+func (b *BannerController) SaveBanner(c *gin.Context) {
+	//
+}
+
+func (b *BannerController) UpdateBanner(c *gin.Context) {
+	//
+}
+
+func (b *BannerController) DeleteBanner(c *gin.Context) {
+	//
 }
