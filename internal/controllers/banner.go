@@ -27,6 +27,23 @@ func NewBannerController(banner Banner) *BannerController {
 	}
 }
 
+func (b *BannerController) AuthMiddleware(c *gin.Context) {
+	token := c.GetHeader("token")
+	if !permission.IsVadlidToken(token) {
+		c.JSON(http.StatusUnauthorized, Unauthorized)
+		c.Abort()
+		return
+	}
+
+	if !permission.IsAdmin(token) {
+		c.JSON(http.StatusForbidden, AccessDenied)
+		c.Abort()
+		return
+	}
+
+	c.Next()
+}
+
 func (b *BannerController) UserBanner(c *gin.Context) {
 
 	token := c.GetHeader("token")
@@ -55,16 +72,7 @@ func (b *BannerController) UserBanner(c *gin.Context) {
 
 func (b *BannerController) GetBanner(c *gin.Context) {
 
-	token := c.GetHeader("token")
-	if !permission.IsVadlidToken(token) {
-		c.JSON(http.StatusUnauthorized, Unauthorized)
-		return
-	}
-
-	if !permission.IsAdmin(token) {
-		c.JSON(http.StatusForbidden, AccessDenied)
-		return
-	}
+	b.AuthMiddleware(c)
 
 	tagID := c.Query("tag_id")
 	featureID := c.Query("feature_id")
@@ -81,16 +89,7 @@ func (b *BannerController) GetBanner(c *gin.Context) {
 }
 
 func (b *BannerController) SaveBanner(c *gin.Context) {
-	token := c.GetHeader("token")
-	if !permission.IsVadlidToken(token) {
-		c.JSON(http.StatusUnauthorized, Unauthorized)
-		return
-	}
-
-	if !permission.IsAdmin(token) {
-		c.JSON(http.StatusForbidden, AccessDenied)
-		return
-	}
+	b.AuthMiddleware(c)
 
 	ctrlBanner := &controllermodel.Banner{}
 	if err := c.BindJSON(ctrlBanner); err != nil {
@@ -108,16 +107,7 @@ func (b *BannerController) SaveBanner(c *gin.Context) {
 
 func (b *BannerController) UpdateBanner(c *gin.Context) {
 
-	token := c.GetHeader("token")
-	if !permission.IsVadlidToken(token) {
-		c.JSON(http.StatusUnauthorized, Unauthorized)
-		return
-	}
-
-	if !permission.IsAdmin(token) {
-		c.JSON(http.StatusForbidden, AccessDenied)
-		return
-	}
+	b.AuthMiddleware(c)
 
 	id := c.Param("id")
 	if id == "" {
@@ -142,16 +132,7 @@ func (b *BannerController) UpdateBanner(c *gin.Context) {
 }
 
 func (b *BannerController) DeleteBanner(c *gin.Context) {
-	token := c.GetHeader("token")
-	if !permission.IsVadlidToken(token) {
-		c.JSON(http.StatusUnauthorized, Unauthorized)
-		return
-	}
-
-	if !permission.IsAdmin(token) {
-		c.JSON(http.StatusForbidden, AccessDenied)
-		return
-	}
+	b.AuthMiddleware(c)
 
 	id := c.Param("id")
 	if id == "" {
