@@ -28,9 +28,13 @@ func (s *Postgres) Close() error {
 }
 
 func (s *Postgres) GetUserBanner(tagID int64, featureID int64) ([]byte, error) {
-	return nil, nil
+	return []byte(`{
+		"func" : "GetUserBanner"
+	}`), nil
 }
 
 func (s *Postgres) GetUserBannerLastRevision(tagID int64, featureID int64) ([]byte, error) {
-	return nil, nil
+	return []byte(`{
+		"func" : "GetUserBannerLastRevision"
+	}`), nil
 }

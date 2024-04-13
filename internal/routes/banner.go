@@ -7,10 +7,9 @@ import (
 )
 
 func SetupBannerRoutes(r *gin.Engine, bannerCtrl *controllers.BannerController) {
-	// banner := r.Group("/banner")
-	// {
-	// 	banner.GET("/", bannerCtrl.EmptyFunc())
-	// }
-	// _ = banner
 	r.GET("/user_banner", bannerCtrl.UserBanner)
+	r.GET("/banner", bannerCtrl.GetBanner)
+	r.POST("/banner", bannerCtrl.SaveBanner)
+	r.PATCH("/banner/:id", bannerCtrl.UpdateBanner)
+	r.DELETE("banner/:id", bannerCtrl.DeleteBanner)
 }

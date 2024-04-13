@@ -1,9 +1,12 @@
 package service
 
 import (
+	"avito/internal/model/controllermodel"
+	"avito/internal/model/servicemodel"
 	"avito/internal/storage"
 	"avito/pkg/logger"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strconv"
 )
@@ -54,8 +57,28 @@ func (b *BannerService) UserBanner(tagID string, featureID string, useLastRevisi
 	var data interface{}
 	err = json.Unmarshal(bytes, &data)
 	if err != nil {
+		b.log.Error("unmarshal error", logger.Err(err))
 		return nil, err
 	}
 
 	return data, nil
+}
+
+func (b *BannerService) GetBanners(tagID string, featureID string, limit string, offset string) ([]servicemodel.Banner, error) {
+	return nil, nil
+
+}
+
+func (b *BannerService) SaveBanner(ctrlBanner *controllermodel.Banner) (int64, error) {
+	return -1, nil
+}
+
+func (b *BannerService) UpdateBanner(bannerID string, ctrlBanner *controllermodel.Banner) error {
+	fmt.Println(*ctrlBanner.Content)
+
+	return nil
+}
+
+func (b *BannerService) DeleteBanner(id string) error {
+	return nil
 }
