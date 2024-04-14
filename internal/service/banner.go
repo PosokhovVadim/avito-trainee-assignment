@@ -72,7 +72,11 @@ func (b *BannerService) UserBanner(tagID string, featureID string, useLastRevisi
 	}
 
 	var jsonContent map[string]interface{}
-	json.Unmarshal(banner.Content, &jsonContent)
+	err = json.Unmarshal(banner.Content, &jsonContent)
+	if err != nil {
+		b.log.Error("unmarshal failed", logger.Err(err))
+		return nil, err
+	}
 	return jsonContent, nil
 }
 
@@ -97,7 +101,11 @@ func (b *BannerService) GetBannersFullInfo(dbBanners *[]servicemodel.Banner) (*[
 		}
 
 		var jsonContent map[string]interface{}
-		json.Unmarshal(banner.Content, &jsonContent)
+		err = json.Unmarshal(banner.Content, &jsonContent)
+		if err != nil {
+			b.log.Error("unmarshal failed", logger.Err(err))
+			return nil, err
+		}
 
 		ctrlBanner := controllermodel.Banner{
 			ID:        banner.ID,
