@@ -80,3 +80,18 @@
 
 ![alt text](img/smarttesting3.png)
 
+
+## Insert Template
+
+Шаблон для тела запроса POST /banner
+
+```json
+{
+    "tag_ids": [4, 5],
+    "feature_id": 3,
+    "content": {
+        "message": "breaking news",
+        "title": "lastest banner"
+    },
+    "is_active": true
+}
