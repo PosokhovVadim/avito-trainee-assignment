@@ -11,7 +11,7 @@ import (
 
 type Banner interface {
 	UserBanner(tagID string, featureID string, useLastRevision string) (interface{}, error)
-	GetBanners(tagID string, featureID string, limit string, offset string) ([]servicemodel.Banner, error)
+	GetBanners(tagID string, featureID string, limit string, offset string) (*[]servicemodel.Banner, error)
 	SaveBanner(ctrlBanner *controllermodel.Banner) (int64, error)
 	UpdateBanner(bannerID string, ctrlBanner *controllermodel.Banner) error
 	DeleteBanner(bannerID string) error
@@ -85,7 +85,7 @@ func (b *BannerController) GetBanner(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, banners)
+	c.JSON(http.StatusOK, *banners)
 }
 
 func (b *BannerController) SaveBanner(c *gin.Context) {

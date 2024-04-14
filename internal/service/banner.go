@@ -4,8 +4,11 @@ import (
 	"avito/internal/model/controllermodel"
 	"avito/internal/model/servicemodel"
 	"avito/internal/storage"
-	"fmt"
+	"avito/pkg/logger"
+	"encoding/json"
 	"log/slog"
+	"strconv"
+	"time"
 )
 
 type BannerService struct {
@@ -20,61 +23,176 @@ func NewBannerService(log *slog.Logger, storage storage.Storage) *BannerService 
 	}
 }
 
-func (b *BannerService) UserBanner(tagID string, featureID string, useLastRevision string) (interface{}, error) {
-	// tagidNum, err := strconv.Atoi(tagID)
-	// if err != nil {
-	// 	b.log.Error("convert failed", slog.String("err", err.Error()))
-	// 	return nil, err
-	// }
+func (b *BannerService) parseNotRequiredInt(value string) (int64, error) {
+	if value == "" {
+		return storage.InvalidInt, nil
+	}
+	num, err := strconv.ParseInt(value, 10, 64)
 
-	// featureidNum, err := strconv.Atoi(featureID)
-	// if err != nil {
-	// 	b.log.Error("convert failed", slog.String("err", err.Error()))
-	// 	return nil, err
-	// }
+	if err != nil {
+		b.log.Error("convert failed", logger.Err(err))
 
-	// fl, err := strconv.ParseBool(useLastRevision)
-	// if err != nil {
-	// 	b.log.Error("convert failed", logger.Err(err))
-	// 	return nil, err
-	// }
-
-	// var bytes []byte
-	// if fl {
-	// 	bytes, err = b.s.GetUserBannerLastRevision(int64(tagidNum), int64(featureidNum))
-	// } else {
-	// 	bytes, err = b.s.GetUserBanner(int64(tagidNum), int64(featureidNum))
-	// }
-
-	// if err != nil {
-	// 	b.log.Error("select error", logger.Err(err))
-	// 	return nil, err
-	// }
-
-	// var data interface{}
-	// err = json.Unmarshal(bytes, &data)
-	// if err != nil {
-	// 	b.log.Error("unmarshal error", logger.Err(err))
-	// 	return nil, err
-	// }
-
-	return nil, nil
+		return 0, err
+	}
+	return num, nil
 }
 
-func (b *BannerService) GetBanners(tagID string, featureID string, limit string, offset string) ([]servicemodel.Banner, error) {
-	return nil, nil
+func (b *BannerService) UserBanner(tagID string, featureID string, useLastRevision string) (interface{}, error) {
+	tagidNum, err := strconv.Atoi(tagID)
+	if err != nil {
+		b.log.Error("convert failed", slog.String("err", err.Error()))
+		return nil, err
+	}
+
+	featureidNum, err := strconv.Atoi(featureID)
+	if err != nil {
+		b.log.Error("convert failed", slog.String("err", err.Error()))
+		return nil, err
+	}
+
+	fl, err := strconv.ParseBool(useLastRevision)
+	if err != nil {
+		b.log.Error("convert failed", logger.Err(err))
+		return nil, err
+	}
+
+	var banner *servicemodel.Banner
+	if fl {
+		banner, err = b.s.GetLastRevision(int64(tagidNum), int64(featureidNum), fl)
+	} else {
+		banner, err = b.s.GetBannerByTagAndFeature(int64(tagidNum), int64(featureidNum))
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return banner.Content, nil
+}
+
+func (b *BannerService) GetBanners(tagID string, featureID string, limit string, offset string) (*[]servicemodel.Banner, error) {
+	tagNum, err := b.parseNotRequiredInt(tagID)
+	if err != nil {
+		return nil, err
+	}
+
+	featureNum, err := b.parseNotRequiredInt(featureID)
+	if err != nil {
+		return nil, err
+	}
+
+	limitNum, err := b.parseNotRequiredInt(limit)
+	if err != nil {
+		return nil, err
+	}
+
+	offsetNum, err := b.parseNotRequiredInt(offset)
+	if err != nil {
+		return nil, err
+	}
+	banners, err := b.s.GetBanners(tagNum, featureNum, limitNum, offsetNum)
+	if err != nil {
+		return nil, err
+	}
+	return banners, nil
 }
 
 func (b *BannerService) SaveBanner(ctrlBanner *controllermodel.Banner) (int64, error) {
-	return -1, nil
+	byteContent, err := json.Marshal(ctrlBanner.Content)
+	if err != nil {
+		return storage.InvalidInt, err
+	}
+
+	bannerID, err := b.s.InsertBanner(&servicemodel.Banner{
+		Content:   byteContent,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		IsActive:  *ctrlBanner.IsActive,
+	})
+
+	if err != nil {
+		return storage.InvalidInt, err
+	}
+
+	if ctrlBanner.FeatureID != nil {
+		_, err := b.s.InsertBannerFeature(&servicemodel.BannerFeature{BannerID: bannerID, FeatureID: *ctrlBanner.FeatureID})
+		if err != nil {
+			return storage.InvalidInt, err
+		}
+	}
+
+	if ctrlBanner.TagID != nil {
+		for _, v := range *ctrlBanner.TagID {
+			_, err := b.s.InsertBannerTag(&servicemodel.BannerTag{BannerID: bannerID, TagID: v})
+			if err != nil {
+				return storage.InvalidInt, err
+			}
+		}
+	}
+
+	return bannerID, nil
 }
 
 func (b *BannerService) UpdateBanner(bannerID string, ctrlBanner *controllermodel.Banner) error {
-	fmt.Println(*ctrlBanner.Content)
+	id, err := strconv.Atoi(bannerID)
+	if err != nil {
+		b.log.Error("convert failed", slog.String("err", err.Error()))
+		return err
+	}
+
+	if ctrlBanner.Content != nil {
+		byteContent, err := json.Marshal(ctrlBanner.Content)
+		if err != nil {
+			return err
+		}
+		err = b.s.UpdateBannerContent(int64(id), byteContent)
+		if err != nil {
+			return err
+		}
+	}
+
+	if ctrlBanner.IsActive != nil {
+		err = b.s.UpdateBannerActivity(int64(id), *ctrlBanner.IsActive)
+		if err != nil {
+			return err
+		}
+	}
+
+	if ctrlBanner.FeatureID != nil {
+		err = b.s.UpdateBannerFeature(int64(id), *ctrlBanner.FeatureID)
+		if err != nil {
+			return err
+		}
+	}
+
+	if ctrlBanner.TagID != nil {
+		bt, err := b.s.GetBannerTags(int64(id))
+		if err != nil {
+			return err
+		}
+		for _, v := range *bt {
+			err = b.s.DeleteBannerTag(int64(id), v.TagID)
+			if err != nil {
+				return err
+			}
+		}
+		for _, v := range *ctrlBanner.TagID {
+			_, err := b.s.InsertBannerTag(&servicemodel.BannerTag{BannerID: int64(id), TagID: v})
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
+
 }
 
 func (b *BannerService) DeleteBanner(id string) error {
-	return nil
+	bannerID, err := strconv.Atoi(id)
+	if err != nil {
+		b.log.Error("convert failed", slog.String("err", err.Error()))
+		return err
+	}
+	return b.s.DeleteBanner(int64(bannerID))
 }

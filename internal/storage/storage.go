@@ -17,7 +17,7 @@ type Storage interface {
 	InsertBannerFeature(bannerFeature *servicemodel.BannerFeature) (int64, error)
 	InsertBannerTag(bannerTag *servicemodel.BannerTag) (int64, error)
 
-	UpdateBannerContent(id int64, content byte) error
+	UpdateBannerContent(id int64, content []byte) error
 	UpdateBannerActivity(id int64, isActive bool) error
 	UpdateBannerFeature(id int64, featureID int64) error
 

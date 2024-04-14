@@ -184,7 +184,7 @@ func (s *Postgres) InsertBannerTag(banner *servicemodel.BannerTag) (int64, error
 	return id, nil
 }
 
-func (s *Postgres) UpdateBannerContent(id int64, content byte) error {
+func (s *Postgres) UpdateBannerContent(id int64, content []byte) error {
 	_, err := s.db.ExecContext(context.Background(), "UPDATE banner SET content = $1 WHERE id = $2", content, id)
 	return err
 }
