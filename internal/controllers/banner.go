@@ -10,7 +10,7 @@ import (
 )
 
 type Banner interface {
-	UserBanner(tagID string, featureID string, useLastRevision string) (interface{}, error)
+	UserBanner(tagID string, featureID string, useLastRevision string, adminStatus bool) (map[string]interface{}, error)
 	GetBanners(tagID string, featureID string, limit string, offset string) (*[]servicemodel.Banner, error)
 	SaveBanner(ctrlBanner *controllermodel.Banner) (int64, error)
 	UpdateBanner(bannerID string, ctrlBanner *controllermodel.Banner) error
@@ -27,21 +27,19 @@ func NewBannerController(banner Banner) *BannerController {
 	}
 }
 
-func (b *BannerController) AuthMiddleware(c *gin.Context) {
+func (b *BannerController) AuthMiddleware(c *gin.Context, next func()) {
 	token := c.GetHeader("token")
 	if !permission.IsVadlidToken(token) {
 		c.JSON(http.StatusUnauthorized, Unauthorized)
-		c.Abort()
 		return
 	}
 
 	if !permission.IsAdmin(token) {
 		c.JSON(http.StatusForbidden, AccessDenied)
-		c.Abort()
 		return
 	}
 
-	c.Next()
+	next()
 }
 
 func (b *BannerController) UserBanner(c *gin.Context) {
@@ -52,6 +50,8 @@ func (b *BannerController) UserBanner(c *gin.Context) {
 		return
 	}
 
+	adminStatus := permission.IsAdmin(token)
+
 	tagID := c.Query("tag_id")
 	featureID := c.Query("feature_id")
 	if tagID == "" || featureID == "" {
@@ -61,7 +61,7 @@ func (b *BannerController) UserBanner(c *gin.Context) {
 
 	useLastRevision := c.DefaultQuery("use_last_revision", "false")
 
-	data, err := b.banner.UserBanner(tagID, featureID, useLastRevision)
+	data, err := b.banner.UserBanner(tagID, featureID, useLastRevision, adminStatus)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, InternalError)
 		return
@@ -72,78 +72,82 @@ func (b *BannerController) UserBanner(c *gin.Context) {
 
 func (b *BannerController) GetBanner(c *gin.Context) {
 
-	b.AuthMiddleware(c)
+	b.AuthMiddleware(c, func() {
+		tagID := c.Query("tag_id")
+		featureID := c.Query("feature_id")
+		limit := c.Query("limit")
+		offset := c.Query("offset")
 
-	tagID := c.Query("tag_id")
-	featureID := c.Query("feature_id")
-	limit := c.Query("limit")
-	offset := c.Query("offset")
+		banners, err := b.banner.GetBanners(tagID, featureID, limit, offset)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, InternalError)
+			return
+		}
 
-	banners, err := b.banner.GetBanners(tagID, featureID, limit, offset)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, InternalError)
-		return
-	}
+		c.JSON(http.StatusOK, *banners)
 
-	c.JSON(http.StatusOK, *banners)
+	})
+
 }
 
 func (b *BannerController) SaveBanner(c *gin.Context) {
-	b.AuthMiddleware(c)
+	b.AuthMiddleware(c, func() {
+		ctrlBanner := &controllermodel.Banner{}
+		if err := c.BindJSON(ctrlBanner); err != nil {
+			c.JSON(http.StatusBadRequest, BadRequest)
+			return
+		}
 
-	ctrlBanner := &controllermodel.Banner{}
-	if err := c.BindJSON(ctrlBanner); err != nil {
-		c.JSON(http.StatusBadRequest, BadRequest)
-		return
-	}
+		if id, err := b.banner.SaveBanner(ctrlBanner); err != nil {
+			c.JSON(http.StatusInternalServerError, InternalError)
+			return
+		} else {
+			c.JSON(http.StatusCreated, id)
+		}
 
-	if id, err := b.banner.SaveBanner(ctrlBanner); err != nil {
-		c.JSON(http.StatusInternalServerError, InternalError)
-		return
-	} else {
-		c.JSON(http.StatusCreated, id)
-	}
+	})
+
 }
 
 func (b *BannerController) UpdateBanner(c *gin.Context) {
 
-	b.AuthMiddleware(c)
+	b.AuthMiddleware(c, func() {
+		id := c.Param("id")
+		if id == "" {
+			c.JSON(http.StatusBadRequest, BadRequest)
+			return
+		}
 
-	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, BadRequest)
-		return
-	}
+		ctrlBanner := &controllermodel.Banner{}
+		if err := c.BindJSON(ctrlBanner); err != nil {
+			c.JSON(http.StatusBadRequest, BadRequest)
+			return
+		}
 
-	ctrlBanner := &controllermodel.Banner{}
-	if err := c.BindJSON(ctrlBanner); err != nil {
-		c.JSON(http.StatusBadRequest, BadRequest)
-		return
-	}
+		if err := b.banner.UpdateBanner(id, ctrlBanner); err != nil {
+			c.JSON(http.StatusInternalServerError, InternalError)
+			return
+		}
 
-	if err := b.banner.UpdateBanner(id, ctrlBanner); err != nil {
-		//todo: add custom db error handling
-		c.JSON(http.StatusInternalServerError, InternalError)
-		return
-	}
-
-	c.Status(http.StatusOK)
+		c.Status(http.StatusOK)
+	})
 
 }
 
 func (b *BannerController) DeleteBanner(c *gin.Context) {
-	b.AuthMiddleware(c)
+	b.AuthMiddleware(c, func() {
+		id := c.Param("id")
+		if id == "" {
+			c.JSON(http.StatusBadRequest, BadRequest)
+			return
+		}
 
-	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, BadRequest)
-		return
-	}
+		if err := b.banner.DeleteBanner(id); err != nil {
+			c.JSON(http.StatusInternalServerError, InternalError)
+			return
+		}
 
-	if err := b.banner.DeleteBanner(id); err != nil {
-		c.JSON(http.StatusInternalServerError, InternalError)
-		return
-	}
+		c.Status(http.StatusNoContent)
+	})
 
-	c.Status(http.StatusNoContent)
 }

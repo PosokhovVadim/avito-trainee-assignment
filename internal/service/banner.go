@@ -37,7 +37,7 @@ func (b *BannerService) parseNotRequiredInt(value string) (int64, error) {
 	return num, nil
 }
 
-func (b *BannerService) UserBanner(tagID string, featureID string, useLastRevision string) (interface{}, error) {
+func (b *BannerService) UserBanner(tagID string, featureID string, useLastRevision string, adminStatus bool) (map[string]interface{}, error) {
 	tagidNum, err := strconv.Atoi(tagID)
 	if err != nil {
 		b.log.Error("convert failed", slog.String("err", err.Error()))
@@ -64,10 +64,17 @@ func (b *BannerService) UserBanner(tagID string, featureID string, useLastRevisi
 	}
 
 	if err != nil {
+		b.log.Error("postgres err: get banner failed", logger.Err(err))
 		return nil, err
 	}
 
-	return banner.Content, nil
+	if !banner.IsActive && !adminStatus {
+		return nil, storage.BannerNotFound
+	}
+
+	var jsonContent map[string]interface{}
+	json.Unmarshal(banner.Content, &jsonContent)
+	return jsonContent, nil
 }
 
 func (b *BannerService) GetBanners(tagID string, featureID string, limit string, offset string) (*[]servicemodel.Banner, error) {
