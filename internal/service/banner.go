@@ -31,7 +31,6 @@ func (b *BannerService) parseNotRequiredInt(value string) (int64, error) {
 
 	if err != nil {
 		b.log.Error("convert failed", logger.Err(err))
-
 		return 0, err
 	}
 	return num, nil
@@ -77,7 +76,45 @@ func (b *BannerService) UserBanner(tagID string, featureID string, useLastRevisi
 	return jsonContent, nil
 }
 
-func (b *BannerService) GetBanners(tagID string, featureID string, limit string, offset string) (*[]servicemodel.Banner, error) {
+func (b *BannerService) GetBannersFullInfo(dbBanners *[]servicemodel.Banner) (*[]controllermodel.Banner, error) {
+	banners := make([]controllermodel.Banner, 0, len(*dbBanners))
+	for _, banner := range *dbBanners {
+		bannerTags, err := b.s.GetBannerTags(banner.ID)
+		if err != nil {
+			b.log.Error("postgres err: get banner tags failed", logger.Err(err))
+			return nil, err
+		}
+
+		var tags []int64
+		for _, tag := range *bannerTags {
+			tags = append(tags, tag.TagID)
+		}
+
+		bannerFeature, err := b.s.GetBannerFeature(banner.ID)
+		if err != nil {
+			b.log.Error("postgres err: get banner feature failed", logger.Err(err))
+			return nil, err
+		}
+
+		var jsonContent map[string]interface{}
+		json.Unmarshal(banner.Content, &jsonContent)
+
+		ctrlBanner := controllermodel.Banner{
+			ID:        banner.ID,
+			TagID:     &tags,
+			FeatureID: &bannerFeature.FeatureID,
+			Content:   jsonContent,
+			IsActive:  &banner.IsActive,
+			CreatedAt: banner.CreatedAt,
+			UpdatedAt: banner.UpdatedAt,
+		}
+
+		banners = append(banners, ctrlBanner)
+	}
+	return &banners, nil
+}
+
+func (b *BannerService) GetBanners(tagID string, featureID string, limit string, offset string) (*[]controllermodel.Banner, error) {
 	tagNum, err := b.parseNotRequiredInt(tagID)
 	if err != nil {
 		return nil, err
@@ -97,10 +134,16 @@ func (b *BannerService) GetBanners(tagID string, featureID string, limit string,
 	if err != nil {
 		return nil, err
 	}
-	banners, err := b.s.GetBanners(tagNum, featureNum, limitNum, offsetNum)
+	dbBanners, err := b.s.GetBanners(tagNum, featureNum, limitNum, offsetNum)
+	if err != nil {
+		b.log.Error("postgres err: get all banners failed", logger.Err(err))
+		return nil, err
+	}
+	banners, err := b.GetBannersFullInfo(dbBanners)
 	if err != nil {
 		return nil, err
 	}
+
 	return banners, nil
 }
 

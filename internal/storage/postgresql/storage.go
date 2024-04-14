@@ -5,6 +5,7 @@ import (
 	"avito/internal/storage"
 	"context"
 	"database/sql"
+	"fmt"
 
 	_ "github.com/lib/pq"
 )
@@ -30,15 +31,17 @@ func (s *Postgres) Close() error {
 }
 
 func (s *Postgres) GetBannerByTagAndFeature(tagID, featureID int64) (*servicemodel.Banner, error) {
+	tagSubquery := `SELECT banner_id FROM banner_tag WHERE tag_id = $1`
+	featureSubquery := `SELECT banner_id FROM banner_feature WHERE feature_id = $2`
 	query := `
-        SELECT banner.*
+        SELECT *
         FROM banner
-        JOIN banner_feature ON banner.id = banner_feature.banner_id
-		JOIN banner_tag ON banner.id = banner_tag.banner_id
-		WHERE banner_feature.feature_id = $1 AND banner_tag.tag_id = $2
-	`
+        WHERE id IN (` + tagSubquery + `) AND id IN (` + featureSubquery + `)
+		LIMIT 1
+    `
 
-	row := s.db.QueryRowContext(context.Background(), query, featureID, tagID)
+	row := s.db.QueryRowContext(context.Background(), query, tagID, featureID)
+
 	var banner servicemodel.Banner
 	if err := row.Scan(
 		&banner.ID,
@@ -47,22 +50,26 @@ func (s *Postgres) GetBannerByTagAndFeature(tagID, featureID int64) (*servicemod
 		&banner.UpdatedAt,
 		&banner.IsActive,
 	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, storage.BannerNotFound
+		}
+
 		return nil, err
 	}
 	return &banner, nil
 }
 
 func (s *Postgres) GetLastRevision(tagID, featureID int64, lastRevision bool) (*servicemodel.Banner, error) {
+	tagSubquery := `SELECT banner_id FROM banner_tag WHERE tag_id = $1`
+	featureSubquery := `SELECT banner_id FROM banner_feature WHERE feature_id = $2`
 	query := `
-		SELECT banner.*
-		FROM banner
-		JOIN banner_feature ON banner.id = banner_feature.banner_id
-		JOIN banner_tag ON banner.id = banner_tag.banner_id
-		WHERE banner_feature.feature_id = $1 AND banner_tag.tag_id = $2
-		ORDER BY banner.updated_at DESC
-		LIMIT 1
-	`
-	row := s.db.QueryRowContext(context.Background(), query, featureID, tagID)
+        SELECT banner.*
+        FROM banner
+        WHERE id IN (` + tagSubquery + `) AND id IN (` + featureSubquery + `)
+        ORDER BY updated_at DESC
+        LIMIT 1
+    `
+	row := s.db.QueryRowContext(context.Background(), query, tagID, featureID)
 	var banner servicemodel.Banner
 	if err := row.Scan(
 		&banner.ID,
@@ -71,6 +78,10 @@ func (s *Postgres) GetLastRevision(tagID, featureID int64, lastRevision bool) (*
 		&banner.UpdatedAt,
 		&banner.IsActive,
 	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, storage.BannerNotFound
+		}
+
 		return nil, err
 	}
 	return &banner, nil
@@ -78,10 +89,10 @@ func (s *Postgres) GetLastRevision(tagID, featureID int64, lastRevision bool) (*
 
 func (s *Postgres) GetBanners(tagID, featureID, limit, offset int64) (*[]servicemodel.Banner, error) {
 
-	sql := `SELECT * FROM banner JOIN banner_tag ON banner.id = banner_tag.banner_id
-		JOIN banner_feature ON banner.id = banner_feature.banner_id WHERE 1=1 ` +
-		storage.ConditionalSQL(tagID, " AND banner_tag.tag_id = %d") +
-		storage.ConditionalSQL(featureID, " AND banner_feature.feature_id = %d") +
+	tagSubquery := `SELECT banner_id FROM banner_tag WHERE 1=1 ` + storage.ConditionalSQL(tagID, " AND tag_id = %d")
+	featureSubquery := `SELECT banner_id FROM banner_feature WHERE 1=1 ` + storage.ConditionalSQL(featureID, " AND feature_id = %d")
+
+	sql := `SELECT * FROM banner WHERE id IN (` + tagSubquery + `) AND id IN (` + featureSubquery + `)` +
 		storage.ConditionalSQL(limit, " LIMIT %d") +
 		storage.ConditionalSQL(offset, " OFFSET %d")
 
@@ -123,6 +134,9 @@ func (s *Postgres) GetBannerTags(bannerID int64) (*[]servicemodel.BannerTag, err
 			&bannerTag.BannerID,
 			&bannerTag.TagID,
 		); err != nil {
+			if err == sql.ErrNoRows {
+				return nil, storage.BannerNotFound
+			}
 			return nil, err
 		}
 		bannerTags = append(bannerTags, bannerTag)
@@ -140,6 +154,9 @@ func (s *Postgres) GetBannerFeature(bannerID int64) (*servicemodel.BannerFeature
 		&bannerFeature.BannerID,
 		&bannerFeature.FeatureID,
 	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, storage.BannerNotFound
+		}
 		return nil, err
 	}
 	return &bannerFeature, nil
@@ -185,12 +202,22 @@ func (s *Postgres) InsertBannerTag(banner *servicemodel.BannerTag) (int64, error
 }
 
 func (s *Postgres) UpdateBannerContent(id int64, content []byte) error {
-	_, err := s.db.ExecContext(context.Background(), "UPDATE banner SET content = $1 WHERE id = $2", content, id)
+	_, err := s.db.ExecContext(
+		context.Background(),
+		"UPDATE banner SET content = $1, updated_at = now() WHERE id = $2",
+		content,
+		id,
+	)
 	return err
 }
 
 func (s *Postgres) UpdateBannerActivity(id int64, isActive bool) error {
-	_, err := s.db.ExecContext(context.Background(), "UPDATE banner SET is_active = $1 WHERE id = $2", isActive, id)
+	_, err := s.db.ExecContext(
+		context.Background(),
+		"UPDATE banner SET is_active = $1, updated_at = now() WHERE id = $2",
+		isActive,
+		id,
+	)
 	return err
 }
 
@@ -200,16 +227,33 @@ func (s *Postgres) UpdateBannerFeature(bannerID int64, featureID int64) error {
 }
 
 func (s *Postgres) DeleteBanner(id int64) error {
-	_, err := s.db.ExecContext(context.Background(), "DELETE FROM banner WHERE id = $1", id)
+	res, err := s.db.ExecContext(context.Background(), "DELETE FROM banner WHERE id = $1", id)
+	if rowsAffected, err := res.RowsAffected(); err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	} else if rowsAffected == 0 {
+		return storage.BannerNotFound
+	}
+
 	return err
 }
 
 func (s *Postgres) DeleteBannerTag(bannerID, tagID int64) error {
-	_, err := s.db.ExecContext(context.Background(), "DELETE FROM banner_tag WHERE banner_id = $1 AND tag_id = $2", bannerID, tagID)
+	res, err := s.db.ExecContext(context.Background(), "DELETE FROM banner_tag WHERE banner_id = $1 AND tag_id = $2", bannerID, tagID)
+	if rowsAffected, err := res.RowsAffected(); err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	} else if rowsAffected == 0 {
+		return storage.BannerNotFound
+	}
+
 	return err
 }
 
 func (s *Postgres) DeleteBannerFeature(bannerID, featureID int64) error {
-	_, err := s.db.ExecContext(context.Background(), "DELETE FROM banner_feature WHERE banner_id = $1 AND feature_id = $2", bannerID, featureID)
+	res, err := s.db.ExecContext(context.Background(), "DELETE FROM banner_feature WHERE banner_id = $1 AND feature_id = $2", bannerID, featureID)
+	if rowsAffected, err := res.RowsAffected(); err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	} else if rowsAffected == 0 {
+		return storage.BannerNotFound
+	}
 	return err
 }

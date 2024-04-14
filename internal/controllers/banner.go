@@ -3,7 +3,8 @@ package controllers
 import (
 	"avito/internal/controllers/permission"
 	"avito/internal/model/controllermodel"
-	"avito/internal/model/servicemodel"
+	"avito/internal/storage"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,7 +12,7 @@ import (
 
 type Banner interface {
 	UserBanner(tagID string, featureID string, useLastRevision string, adminStatus bool) (map[string]interface{}, error)
-	GetBanners(tagID string, featureID string, limit string, offset string) (*[]servicemodel.Banner, error)
+	GetBanners(tagID string, featureID string, limit string, offset string) (*[]controllermodel.Banner, error)
 	SaveBanner(ctrlBanner *controllermodel.Banner) (int64, error)
 	UpdateBanner(bannerID string, ctrlBanner *controllermodel.Banner) error
 	DeleteBanner(bannerID string) error
@@ -63,6 +64,11 @@ func (b *BannerController) UserBanner(c *gin.Context) {
 
 	data, err := b.banner.UserBanner(tagID, featureID, useLastRevision, adminStatus)
 	if err != nil {
+		if errors.Is(err, storage.BannerNotFound) {
+			c.JSON(http.StatusNotFound, BannerNotFound)
+			return
+		}
+
 		c.JSON(http.StatusInternalServerError, InternalError)
 		return
 	}
@@ -80,6 +86,11 @@ func (b *BannerController) GetBanner(c *gin.Context) {
 
 		banners, err := b.banner.GetBanners(tagID, featureID, limit, offset)
 		if err != nil {
+			if errors.Is(err, storage.BannerNotFound) {
+				c.JSON(http.StatusNotFound, BannerNotFound)
+				return
+			}
+
 			c.JSON(http.StatusInternalServerError, InternalError)
 			return
 		}
@@ -99,6 +110,11 @@ func (b *BannerController) SaveBanner(c *gin.Context) {
 		}
 
 		if id, err := b.banner.SaveBanner(ctrlBanner); err != nil {
+			if errors.Is(err, storage.BannerAlreadyExists) {
+				c.JSON(http.StatusConflict, BannerAlreadyExists)
+				return
+			}
+
 			c.JSON(http.StatusInternalServerError, InternalError)
 			return
 		} else {
@@ -125,6 +141,11 @@ func (b *BannerController) UpdateBanner(c *gin.Context) {
 		}
 
 		if err := b.banner.UpdateBanner(id, ctrlBanner); err != nil {
+			if errors.Is(err, storage.BannerNotFound) {
+				c.JSON(http.StatusNotFound, BannerNotFound)
+				return
+			}
+
 			c.JSON(http.StatusInternalServerError, InternalError)
 			return
 		}
@@ -143,6 +164,11 @@ func (b *BannerController) DeleteBanner(c *gin.Context) {
 		}
 
 		if err := b.banner.DeleteBanner(id); err != nil {
+			if errors.Is(err, storage.BannerNotFound) {
+				c.JSON(http.StatusNotFound, BannerNotFound)
+				return
+			}
+
 			c.JSON(http.StatusInternalServerError, InternalError)
 			return
 		}
